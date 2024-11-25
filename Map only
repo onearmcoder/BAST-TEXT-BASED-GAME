@@ -1,0 +1,149 @@
+import time
+
+# Define the starting time (in minutes) and the game time limit
+start_time = 7 * 60 + 40  # 7:40 AM in minutes (start of game)
+end_time = 15 * 60 + 4    # 3:04 PM in minutes (end of game)
+total_time = end_time - start_time  # total minutes available (464 minutes)
+
+# Initialize game state
+time_remaining = total_time
+current_time = start_time
+player_location = "Drop-Off Area"
+previous_location = None
+
+# Define the locations and their valid connections
+locations = {
+    "Drop-Off Area": ["Main Office", "Main School"],
+    "Main Office": ["Mrs. Piller's Office", "Ms. Cena's Reception Desk", "Lunch Room", "Mrs. Cadoomgan's Office", "Drop-Off Area"],
+    "Main School": ["Left Hallway", "Middle Hallway", "Right Hallway", "Drop-Off Area"],
+    "Left Hallway": ["Room 103", "Room 105", "Room 101", "Nurse", "Main School", "Downstairs Bathroom 1"],  # Left Hallway now has Downstairs Bathroom 1
+    "Middle Hallway": ["Room 107", "Room 109", "Stairs Up", "Main School"],  # Middle Hallway no longer has bathrooms
+    "Right Hallway": ["Room 111", "Room 113", "Room 115", "Janitor Closet", "Main School", "Downstairs Bathroom 2"],  # Right Hallway now has Downstairs Bathroom 2
+    "Stairs Up": ["Middle Upstairs"],  # Only one entrance to the "Middle Upstairs" from stairs
+    "Middle Upstairs": ["Stairs Down", "Left Upstairs", "Right Upstairs"],  # Upstairs hallways
+    "Left Upstairs": ["Room 201", "Room 203", "Room 207", "Room 209", "Upstairs Bathroom 3"],  # Left Upstairs now has Upstairs Bathroom 3
+    "Right Upstairs": ["Room 211", "Room 213", "Room 215", "Upstairs Bathroom 4"],  # Right Upstairs now has Upstairs Bathroom 4
+}
+
+# Dead-end locations where the player can't stay for long and should return to previous location
+dead_ends = [
+    "Lunch Room", "Mrs. Piller's Office", "Ms. Cena's Reception Desk", "Mrs. Cadoomgan's Office", 
+    "Nurse", "Downstairs Bathroom 1", "Downstairs Bathroom 2", "Upstairs Bathroom 3", "Upstairs Bathroom 4", 
+    "Janitor Closet", "Room 103", "Room 105", "Room 101", 
+    "Room 107", "Room 109", "Room 111", "Room 113", "Room 115", 
+    "Room 201", "Room 203", "Room 207", "Room 209", "Room 211", "Room 213", "Room 215"
+]
+
+# Function to format time in 12-hour AM/PM format
+def format_time(minutes):
+    hours = minutes // 60
+    mins = minutes % 60
+    period = "AM" if hours < 12 else "PM"
+    hours = hours % 12
+    hours = 12 if hours == 0 else hours
+    return f"{hours:02}:{mins:02} {period}"
+
+# Function to display the game status
+def display_status():
+    global current_time
+    formatted_time = format_time(current_time)
+    print(f"\nCurrent Location: {player_location}")
+    print(f"Time: {formatted_time}")
+    if previous_location:
+        print(f"Previous Location: {previous_location}")
+    print("What would you like to do next?")
+
+# Function to handle movement
+def move_to(new_location):
+    global player_location, current_time, previous_location, time_remaining
+    if new_location in locations[player_location]:
+        if new_location == "Middle Upstairs":  # Automatically enter Middle Upstairs when coming from Stairs Up
+            previous_location = player_location  # Save the previous location (Middle Hallway)
+            player_location = new_location
+            print(f"\nYou moved upstairs to {new_location}.")
+        elif new_location == "Stairs Down":  # Going down from upstairs to Middle Hallway
+            player_location = "Middle Hallway"
+            print("\nYou're going back downstairs to Middle Hallway.")
+        elif new_location.startswith("Room 2"):  # Check if the room starts with "Room 2" (upstairs rooms)
+            # Allow entering rooms in Left or Right Upstairs
+            print(f"\nEntering room {new_location} upstairs.")
+            time.sleep(1)
+            print("\nYou're not supposed to be here! Returning to the Middle Upstairs.")
+            time.sleep(1)
+            player_location = "Middle Upstairs"  # After entering a room, return to Middle Upstairs
+        elif new_location.startswith("Downstairs Bathroom"):  # Handle downstairs bathrooms
+            print(f"\nYou entered {new_location}.")
+            time.sleep(1)
+            print("\nYou're not supposed to be here! Returning to the Main School.")
+            time.sleep(1)
+            player_location = "Main School"  # Returning to Main School from any downstairs bathroom
+        elif new_location.startswith("Upstairs Bathroom"):  # Handle upstairs bathrooms
+            print(f"\nYou entered {new_location}.")
+            time.sleep(1)
+            print("\nYou're not supposed to be here! Returning to the Middle Upstairs.")
+            time.sleep(1)
+            player_location = "Middle Upstairs"  # Returning to Middle Upstairs from any upstairs bathroom
+        elif new_location in dead_ends:  # Handle dead-ends by returning to Drop-Off Area
+            print(f"\nYou entered a dead-end: {new_location}. Returning to Drop-Off Area.")
+            time.sleep(1)
+            player_location = "Drop-Off Area"  # Return to Drop-Off Area from any dead-end location
+        else:
+            previous_location = player_location
+            player_location = new_location
+            time_remaining -= 5  # Each move takes 1% of the total time (roughly 4.64 minutes, rounded to 5)
+            current_time += 5  # Increment time by 5 minutes for each move
+            print(f"\nYou moved to {new_location}.")
+    else:
+        print("\nYou can't go there from here!")
+
+# Function to check if time is up
+def check_time():
+    if time_remaining <= 0:
+        print("\nTime's up! The game is over.")
+        return True
+    return False
+
+# Main game loop
+def game():
+    global current_time, time_remaining
+    while time_remaining > 0:
+        display_status()
+
+        # Get player input for the next move, based on available locations
+        valid_moves = locations[player_location]
+
+        # Display numbered options
+        print("\nAvailable Options:")
+        for i, location in enumerate(valid_moves, start=1):
+            print(f"{i}. {location}")
+
+        # Get the player's choice (1, 2, 3, etc.)
+        choice = input("Enter the number of your choice (Type 'back' to return): ").strip()
+
+        if choice.lower() == "exit":
+            print("You chose to exit the game.")
+            break
+        elif choice.lower() == "back" and previous_location:
+            print("\nReturning to previous location...")
+            time.sleep(1)
+            move_to(previous_location)  # Go back to the previous location
+        else:
+            try:
+                choice_num = int(choice)
+                if 1 <= choice_num <= len(valid_moves):
+                    move_to(valid_moves[choice_num - 1])  # Subtract 1 for 0-based indexing
+                else:
+                    print("\nInvalid choice. Try again.")
+            except ValueError:
+                print("\nInvalid input. Please enter a valid number.")
+
+        # Check if time is up
+        if check_time():
+            break
+
+        # Sleep to simulate a slight delay (optional)
+        time.sleep(0.5)
+
+# Start the game
+print("Welcome to the School Adventure Game!")
+game()
