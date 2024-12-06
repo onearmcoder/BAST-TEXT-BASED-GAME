@@ -1,0 +1,187 @@
+import time
+
+# Define the starting time (in minutes) and the game time limit
+start_time = 7 * 60 + 20  # 7:20 AM in minutes (start of game)
+end_time = 15 * 60 + 15   # 3:15 PM in minutes (end of game)
+total_time = end_time - start_time  # Total minutes available
+
+# Initialize game state
+time_remaining = total_time
+current_time = start_time
+player_location = "Drop-Off Area"
+previous_location = None
+classes_attended = set()  # To track attended classes
+
+# Define the locations and their valid connections
+locations = {
+    "Drop-Off Area": ["Main Office", "Main School"],
+    "Main Office": ["Mrs. Piller's Office", "Ms. Cena's Reception Desk", "Lunch Room", "Mrs. Cadoomgan's Office", "Drop-Off Area"],
+    "Main School": ["Left Hallway", "Middle Hallway", "Right Hallway", "Drop-Off Area"],
+    "Left Hallway": ["Room 103", "Room 105", "Room 101", "Nurse", "Main School", "Downstairs Bathroom 1"],
+    "Middle Hallway": ["Room 107", "Room 109", "Stairs Up", "Main School"],
+    "Right Hallway": ["Room 111", "Room 113", "Room 115", "Janitor Closet", "Main School", "Downstairs Bathroom 2"],
+    "Stairs Up": ["Middle Upstairs"],
+    "Middle Upstairs": ["Stairs Down", "Left Upstairs", "Right Upstairs"],
+    "Left Upstairs": ["Room 201", "Room 203", "Room 207", "Room 209", "Upstairs Bathroom 3", "Middle Upstairs"],
+    "Right Upstairs": ["Room 211", "Room 213", "Room 215", "Upstairs Bathroom 4", "Middle Upstairs"],
+    "Stairs Down": ["Main School"],  # Stairs Down leads to Main School
+}
+
+# Dead-end locations
+dead_ends = {
+    "Main Office": [
+        "Lunch Room", "Mrs. Piller's Office", "Ms. Cena's Reception Desk", "Mrs. Cadoomgan's Office"
+    ],
+    "Downstairs": [
+        "Nurse", "Room 101", "Room 103", "Room 105","Room 107", "Room 109","Room 111", "Room 113", "Room 115", "Downstairs Bathroom 1", "Downstairs Bathroom 2"
+    ],
+    "Upstairs": [
+        "Room 201", "Room 203", "Room 207", "Room 209", "Room 211", "Room 213", "Room 215", "Upstairs Bathroom 3", "Upstairs Bathroom 4"
+    ]
+}
+
+# Schedule of classes with teacher names
+class_schedule = [
+    ("Room 103", "Mr. Cliff", "Art", 7 * 60 + 45, 8 * 60 + 35),  # 7:50 AM - 8:35 AM
+    ("Room 203", "Mr. Checkerbean", "History", 9 * 60 + 5, 9 * 60 + 45),  # 8:55 AM - 9:40 AM
+    ("Room 215", "Mr. Moon", "Spanish", 10 * 60, 10 * 60 + 45),  # 10:00 AM - 10:45 AM
+    ("Lunch Room", "Cafeteria", "Lunch", 11 * 60 + 5, 11 * 60 + 40),  # 11:05 AM - 11:40 AM
+    ("Drop-Off Area", "Mr. Sunshine", "PE", 12 * 60, 12 * 60 + 40),  # 12:00 PM - 12:40 PM
+    ("Room 211", "Mr. Softwood", "Computer Science", 13 * 60, 13 * 60 + 45),  # 1:00 PM - 1:45 PM
+    ("Room 209", "Mrs. Saucio", "English", 14 * 60 + 5, 14 * 60 + 50),  # 2:05 PM - 2:50 PM
+]
+
+# Function to format time in 12-hour AM/PM format
+def format_time(minutes):
+    hours = minutes // 60
+    mins = minutes % 60
+    period = "AM" if hours < 12 else "PM"
+    hours = hours % 12
+    hours = 12 if hours == 0 else hours
+    return f"{hours:02}:{mins:02} {period}"
+
+# Function to display the current objective
+def display_objective():
+    global current_time
+    for i, (room, teacher, subject, start, end) in enumerate(class_schedule):
+        if subject not in classes_attended and current_time <= end:
+            print(f"Next Objective: Attend {subject} with {teacher} in {room}. Scheduled: {format_time(start)} - {format_time(end)}.")
+            break
+    else:
+        print("All classes completed! Return to Drop-Off Area before 3:15 PM.")
+
+# Function to display the game status
+def display_status():
+    global current_time
+    formatted_time = format_time(current_time)
+    print(f"\nCurrent Location: {player_location}")
+    print(f"Time: {formatted_time}")
+    print(f"Classes Attended: {len(classes_attended)}/7")
+    display_objective()
+
+# Function to handle movement
+def move_to(new_location):
+    global player_location, current_time, previous_location, time_remaining
+    if new_location in locations[player_location]:
+        if new_location == "Drop-Off Area":
+            # Allow freely moving to the Drop-Off Area at any time
+            player_location = "Drop-Off Area"
+            print("\nYou moved to the Drop-Off Area.")
+            
+            # Check if it's the correct time for PE class
+            for room, teacher, subject, start, end in class_schedule:
+                if room == "Drop-Off Area" and start <= current_time <= end and subject == "PE":
+                    if subject not in classes_attended:  # Check the subject directly
+                        print(f"\nYou attended PE with {teacher} in the {new_location}.")
+                        classes_attended.add(subject)  # Add subject (e.g., "PE") to attended classes
+                        time_spent = end - current_time
+                        current_time += time_spent
+                        time_remaining -= time_spent
+                    break
+
+        elif new_location == "Janitor Closet":
+            # Handle the Janitor's Closet as a special case
+            print("\nYou entered the Janitor's Closet. There's nothing useful here. You return to the Right Hallway.")
+            player_location = "Right Hallway"
+
+        elif any(room == new_location for room, _, _, start, end in class_schedule):
+            # Check if within the scheduled time
+            for room, teacher, subject, start, end in class_schedule:
+                if room == new_location:
+                    if start <= current_time <= end:
+                        if subject not in classes_attended:  # Check the subject directly
+                            print(f"\nYou attended {subject} with {teacher} in {new_location}.")
+                            classes_attended.add(subject)  # Add subject to attended classes
+                            time_spent = end - current_time
+                            current_time += time_spent
+                            time_remaining -= time_spent
+                    else:
+                        print("\nIt's not time for this class yet.")
+                    break
+        elif new_location in dead_ends["Main Office"]:
+            print(f"\nYou entered a dead-end in the Main Office: {new_location}. Returning to Drop-Off Area.")
+            player_location = "Drop-Off Area"
+        elif new_location in dead_ends["Downstairs"]:
+            print(f"\nYou entered a downstairs dead-end: {new_location}. Returning to Main School.")
+            player_location = "Main School"
+        elif new_location in dead_ends["Upstairs"]:
+            print(f"\nYou entered an upstairs dead-end: {new_location}. Returning to Middle Upstairs.")
+            player_location = "Middle Upstairs"
+        else:
+            previous_location = player_location
+            player_location = new_location
+            time_remaining -= 5
+            current_time += 5
+            print(f"\nYou moved to {new_location}.")
+    else:
+        print("\nYou can't go there from here!")
+
+# Function to check if the game objective is met
+def check_objective():
+    if len(classes_attended) == 7 and player_location == "Drop-Off Area" and current_time <= 15 * 60 + 15:
+        print("\nCongratulations! You successfully completed the day and made it back on time!")
+        return True
+    return False
+
+# Function to check if time is up
+def check_time():
+    if time_remaining <= 0:
+        print("\nTime's up! The game is over.")
+        return True
+    return False
+
+# Main game loop
+def game():
+    global current_time, time_remaining
+    while time_remaining > 0:
+        display_status()
+        if check_objective():
+            break
+        # Get player input for the next move
+        valid_moves = locations[player_location]
+        print("\nAvailable Options:")
+        for i, location in enumerate(valid_moves, start=1):
+            print(f"{i}. {location}")
+        choice = input("Enter the number of your choice (Type 'back' to return): ").strip()
+        if choice.lower() == "exit":
+            print("You chose to exit the game.")
+            break
+        elif choice.lower() == "back" and previous_location:
+            print("\nReturning to previous location...")
+            move_to(previous_location)
+        else:
+            try:
+                choice_num = int(choice)
+                if 1 <= choice_num <= len(valid_moves):
+                    move_to(valid_moves[choice_num - 1])
+                else:
+                    print("\nInvalid choice. Try again.")
+            except ValueError:
+                print("\nInvalid input. Please enter a valid number.")
+        if check_time():
+            break
+        time.sleep(0.5)
+
+# Start the game
+print("Welcome to the School Adventure Game!")
+game()
